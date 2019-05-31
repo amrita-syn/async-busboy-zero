@@ -11,68 +11,70 @@ module.exports = function (request, options) {
   options = options || {};
   options.headers = options.headers || request.headers;
   const customOnFile = typeof options.onFile === "function" ? options.onFile : false;
+  // add `tmpdir` options, because put tmp files in `/tmp` on linux doesn't suit any situations
+  const tmpdir = options.tmpdir || os.tmpdir()
   delete options.onFile;
   const busboy = new Busboy(options);
-
+  
   return new Promise((resolve, reject) => {
     const fields = {};
     const filePromises = [];
-
+    
     request.on('close', cleanup);
-
+    
     busboy
-      .on('field', onField.bind(null, fields))
-      .on('file', customOnFile || onFile.bind(null, filePromises))
-      .on('close', cleanup)
-      .on('error', onError)
-      .on('end', onEnd)
-      .on('finish', onEnd);
-
-    busboy.on('partsLimit', function(){
+    .on('field', onField.bind(null, fields))
+    .on('file', customOnFile || onFile.bind(null, filePromises, tmpdir))
+    .on('close', cleanup)
+    .on('error', onError)
+    .on('end', onEnd)
+    .on('finish', onEnd);
+    
+    busboy.on('partsLimit', function () {
       const err = new Error('Reach parts limit');
       err.code = 'Request_parts_limit';
       err.status = 413;
       onError(err);
     });
-
+    
     busboy.on('filesLimit', () => {
       const err = new Error('Reach files limit');
       err.code = 'Request_files_limit';
       err.status = 413;
       onError(err);
     });
-
+    
     busboy.on('fieldsLimit', () => {
       const err = new Error('Reach fields limit');
       err.code = 'Request_fields_limit';
       err.status = 413;
       onError(err);
     });
-
+    
     request.pipe(busboy);
-
+    
     function onError(err) {
       cleanup();
       return reject(err);
     }
-
+    
     function onEnd(err) {
-      if(err) {
+      if (err) {
         return reject(err);
       }
       if (customOnFile) {
         cleanup();
-        resolve({ fields });
+        resolve({fields});
       } else {
         Promise.all(filePromises)
-          .then((files) => {
-            cleanup();
-            resolve({fields, files});
-          })
-          .catch(reject);
+        .then((files) => {
+          cleanup();
+          resolve({fields, files, complete: complete.bind(null, files)});
+        })
+        .catch(reject);
       }
     }
-
+    
     function cleanup() {
       busboy.removeListener('field', onField);
       busboy.removeListener('file', onFile);
@@ -90,12 +92,12 @@ module.exports = function (request, options) {
 function onField(fields, name, val, fieldnameTruncated, valTruncated) {
   // don't overwrite prototypes
   if (getDescriptor(Object.prototype, name)) return;
-
+  
   // This looks like a stringified array, let's parse it
   if (name.indexOf('[') > -1) {
     const obj = objectFromBluePrint(extractFormData(name), val);
     reconcile(obj, fields);
-
+    
   } else {
     if (fields.hasOwnProperty(name)) {
       if (Array.isArray(fields[name])) {
@@ -109,30 +111,30 @@ function onField(fields, name, val, fieldnameTruncated, valTruncated) {
   }
 }
 
-function onFile(filePromises, fieldname, file, filename, encoding, mimetype) {
+function onFile(filePromises, tmpdir, fieldname, file, filename, encoding, mimetype) {
   const tmpName = file.tmpName = Math.random().toString(16).substring(2) + '-' + filename;
-  const saveTo = path.join(os.tmpdir(), path.basename(tmpName));
+  const saveTo = path.join(tmpdir, path.basename(tmpName));
   const writeStream = fs.createWriteStream(saveTo);
-
+  
   const filePromise = new Promise((resolve, reject) => writeStream
-    .on('open', () => file
-      .pipe(writeStream)
-      .on('error', reject)
-      .on('finish', () => {
-        const readStream = fs.createReadStream(saveTo);
-        readStream.fieldname = fieldname;
-        readStream.filename = filename;
-        readStream.transferEncoding = readStream.encoding = encoding;
-        readStream.mimeType = readStream.mime = mimetype;
-        resolve(readStream);
-      })
-    )
-    .on('error', (err) => {
-      file
-        .resume()
-        .on('error', reject);
-      reject(err);
-    })
+  .on('open', () => file
+  .pipe(writeStream)
+  .on('error', reject)
+  .on('finish', () => {
+    const readStream = fs.createReadStream(saveTo);
+    readStream.fieldname = fieldname;
+    readStream.filename = filename;
+    readStream.transferEncoding = readStream.encoding = encoding;
+    readStream.mimeType = readStream.mime = mimetype;
+    resolve(readStream);
+  })
+  )
+  .on('error', (err) => {
+    file
+    .resume()
+    .on('error', reject);
+    reject(err);
+  })
   );
   filePromises.push(filePromise);
 }
@@ -151,7 +153,7 @@ function onFile(filePromises, fieldname, file, filename, encoding, mimetype) {
 const extractFormData = (string) => {
   const arr = string.split('[');
   const first = arr.shift();
-  const res = arr.map( v => v.split(']')[0] );
+  const res = arr.map(v => v.split(']')[0]);
   res.unshift(first);
   return res;
 };
@@ -169,16 +171,16 @@ const extractFormData = (string) => {
  */
 const objectFromBluePrint = (arr, value) => {
   return arr
-    .reverse()
-    .reduce((acc, next) => {
-      if (Number(next).toString() === 'NaN') {
-        return {[next]: acc};
-      } else {
-        const newAcc = [];
-        newAcc[ Number(next) ] = acc;
-        return newAcc;
-      }
-    }, value);
+  .reverse()
+  .reduce((acc, next) => {
+    if (Number(next).toString() === 'NaN') {
+      return {[next]: acc};
+    } else {
+      const newAcc = [];
+      newAcc[Number(next)] = acc;
+      return newAcc;
+    }
+  }, value);
 };
 
 /**
@@ -192,7 +194,7 @@ const objectFromBluePrint = (arr, value) => {
 const reconcile = (obj, target) => {
   const key = Object.keys(obj)[0];
   const val = obj[key];
-
+  
   // The reconciliation works even with array has
   // Object.keys will yield the array indexes
   // see https://jsbin.com/hulekomopo/1/
@@ -203,5 +205,30 @@ const reconcile = (obj, target) => {
   } else {
     return target[key] = val;
   }
-
+  
 };
+
+const complete = async (files) => {
+  return new Promise((resolve, reject) => {
+    Promise.all(
+      files.map(file => {
+        return new Promise((res, rej) => {
+          try {
+            const filePath = file.path
+            file.destroy()
+            fs.exists(filePath, exists => {
+              if (exists) {
+                fs.unlinkSync(filePath)
+              }
+            })
+            res()
+          } catch (e) {
+            rej(e)
+          }
+        })
+      })
+    )
+    .then(_ => resolve())
+    .catch(e => reject(e))
+  })
+}
