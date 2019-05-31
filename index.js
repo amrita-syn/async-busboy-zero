@@ -4,6 +4,7 @@ const Busboy = require('busboy');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const fse = require('fs-extra')
 
 const getDescriptor = Object.getOwnPropertyDescriptor;
 
@@ -13,13 +14,14 @@ module.exports = function (request, options) {
   const customOnFile = typeof options.onFile === "function" ? options.onFile : false;
   // add `tmpdir` options, because put tmp files in `/tmp` on linux doesn't suit any situations
   const tmpdir = options.tmpdir || os.tmpdir()
+  delete options.tmpdir;
   delete options.onFile;
   const busboy = new Busboy(options);
   
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     const fields = {};
     const filePromises = [];
-    
+    await fse.ensureDir(tmpdir)
     request.on('close', cleanup);
     
     busboy
