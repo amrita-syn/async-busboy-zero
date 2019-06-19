@@ -218,9 +218,11 @@ const complete = async (files) => {
           try {
             const filePath = file.path
             file.destroy()
-            fs.exists(filePath, exists => {
-              if (exists) {
-                fs.unlinkSync(filePath)
+            fs.access(filePath, fs.constants.F_OK, err => {
+              if (!err) {
+                fs.unlink(filePath, e => {
+                  if(e) throw e
+                })
               }
             })
             res()
