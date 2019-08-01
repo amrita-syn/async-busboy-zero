@@ -1,10 +1,10 @@
 # Promise Based Multipart Form Parser
 
-forked from 'async-busboy'
+Forked from 'async-busboy-plus'
  
-add complete method to delete tmpfile
-
-add tmpdir option to select where to cache
+### Options other than Busboy
+1. tmpdir - Specify a location where the temp files will be stored
+2. streamTimeout - Specify how long the temp file handles will exist. Addresses the scenario where a writeStream goes stale. Defualt set to 1 hr. 
 
 ## Examples
 
@@ -16,12 +16,13 @@ import asyncBusboy from 'async-busboy-plus';
 async function(ctx, next) {
   const {files, fields, complete} = await asyncBusboy(ctx.req, {
     // default to os.tmpdir
-    tmpdir: '/tmp'
+    tmpdir: '/tmp',
+    streamTimeout: 300000
   });
 
-  // Make some validation on the fields before upload to S3
+  // Make some validation on the fields
   if ( checkFiles(fields) ) {
-    files.map(uploadFilesToS3)
+    files.map(/* Do something with each file like uploading to s3 */)
   } else {
     return 'error';
   }
