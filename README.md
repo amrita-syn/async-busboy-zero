@@ -6,6 +6,8 @@ Forked from 'async-busboy-plus'
 1. tmpdir - Specify a location where the temp files will be stored
 2. streamTimeout - Specify how long the temp file handles will exist. Addresses the scenario where a writeStream goes stale. Defualt set to 1 hr. 
 
+The 'zero' because it doesn't leave any temp files or open write streams behind.
+
 ## Examples
 
 ### Async/Await (using temp files)
