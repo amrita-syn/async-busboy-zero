@@ -5,7 +5,7 @@
   "main": "index.js",
   "repository": {
     "type": "git",
-    "url": "https://gitlab.com/synapsica/async-busboy-zero"
+    "url": "https://github.com/amrita-syn/async-busboy-zero"
   },
   "scripts": {
     "test": "NODE_ENV=test mocha specs.js --harmony --reporter spec --bail",
