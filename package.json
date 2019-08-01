@@ -1,11 +1,11 @@
 {
-  "name": "async-busboy-plus",
-  "version": "0.7.1",
-  "description": "Promise based multipart form parser",
+  "name": "async-busboy-zero",
+  "version": "0.7.2",
+  "description": "Promise based multipart form parser with zero leftovers.",
   "main": "index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/xiaoliang2233/async-busboy"
+    "url": "https://gitlab.com/synapsica/async-busboy-zero"
   },
   "scripts": {
     "test": "NODE_ENV=test mocha specs.js --harmony --reporter spec --bail",
@@ -17,7 +17,7 @@
     "form",
     "file-upload"
   ],
-  "author": "xiaoliang2233 <xiaoliang2233@gmail.com>",
+  "author": "amrita-syn <amrita.yadav@synapsica.com>",
   "license": "MIT",
   "dependencies": {
     "busboy": "^0.2.12",

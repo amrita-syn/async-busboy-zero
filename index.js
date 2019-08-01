@@ -8,14 +8,22 @@ const fse = require('fs-extra')
 
 const getDescriptor = Object.getOwnPropertyDescriptor;
 
+/**
+ * Timeout for a file write stream to remain open
+ * Default - 1 hour
+ */
+const streamTimeout = 3600000;
+
 module.exports = function (request, options) {
   options = options || {};
   options.headers = options.headers || request.headers;
+  streamTimeout = options.streamTimeout || streamTimeout;
   const customOnFile = typeof options.onFile === "function" ? options.onFile : false;
   // add `tmpdir` options, because put tmp files in `/tmp` on linux doesn't suit any situations
   const tmpdir = options.tmpdir || os.tmpdir()
   delete options.tmpdir;
   delete options.onFile;
+  delete options.streamTimeout;
   const busboy = new Busboy(options);
   
   return new Promise(async (resolve, reject) => {
@@ -23,7 +31,7 @@ module.exports = function (request, options) {
     const filePromises = [];
     await fse.ensureDir(tmpdir)
     request.on('close', cleanup);
-    
+
     busboy
     .on('field', onField.bind(null, fields))
     .on('file', customOnFile || onFile.bind(null, filePromises, tmpdir))
@@ -118,6 +126,14 @@ function onFile(filePromises, tmpdir, fieldname, file, filename, encoding, mimet
   const saveTo = path.join(tmpdir, path.basename(tmpName));
   const writeStream = fs.createWriteStream(saveTo);
   
+  /**
+   * In case the writeStream remains open for more than 1 hr or custom streamTimeout
+   */
+  setTimeout(() => {
+    writeStream.destroy(new Error('writeStrem Timed out for: ' + saveTo))
+    fs.unlink(saveTo);
+  }, streamTimeout);
+
   const filePromise = new Promise((resolve, reject) => writeStream
   .on('open', () => file
   .pipe(writeStream)
