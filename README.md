@@ -1,6 +1,6 @@
 # Promise Based Multipart Form Parser
 
-Forked from 'async-busboy-plus'
+Built upon '[async-busboy-plus](https://github.com/xiaoliang2233/async-busboy)'. Issue being addressed is the perpetually open write streams in case of the request just ending abruptly like network cable removal or unforeseen timeouts.
  
 ### Options other than Busboy
 1. tmpdir - Specify a location where the temp files will be stored
